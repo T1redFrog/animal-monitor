@@ -1,0 +1,9 @@
+venv/
+__pycache__/
+*.pyc
+static/uploads/
+static/results/
+history.json
+*.pt
+report.xlsx
+report.pdf

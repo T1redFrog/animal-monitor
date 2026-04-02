@@ -1,0 +1,286 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Мониторинг бездомных животных</title>
+<style>
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  body { font-family: 'Segoe UI', Arial, sans-serif; background: #f0f4f8; color: #1a202c; }
+
+  header {
+    background: linear-gradient(135deg, #1a56db, #2e75b6);
+    color: white; padding: 18px 32px;
+    display: flex; align-items: center; gap: 14px;
+    box-shadow: 0 2px 8px rgba(0,0,0,0.2);
+  }
+  header h1 { font-size: 1.3rem; font-weight: 600; }
+  header span { font-size: 1.8rem; }
+
+  .container { max-width: 1100px; margin: 0 auto; padding: 24px 16px; }
+
+  .card {
+    background: white; border-radius: 12px;
+    box-shadow: 0 2px 10px rgba(0,0,0,0.08);
+    padding: 24px; margin-bottom: 20px;
+  }
+  .card h2 { font-size: 1rem; color: #4a5568; margin-bottom: 16px;
+    text-transform: uppercase; letter-spacing: 0.05em; }
+
+  /* Upload zone */
+  .upload-zone {
+    border: 2px dashed #90cdf4; border-radius: 10px;
+    padding: 36px; text-align: center; cursor: pointer;
+    transition: all 0.2s; background: #ebf8ff;
+  }
+  .upload-zone:hover, .upload-zone.dragover {
+    border-color: #1a56db; background: #dbeafe;
+  }
+  .upload-zone input { display: none; }
+  .upload-zone .icon { font-size: 3rem; margin-bottom: 10px; }
+  .upload-zone p { color: #4a90e2; font-size: 0.95rem; }
+  .upload-zone .hint { color: #718096; font-size: 0.8rem; margin-top: 6px; }
+
+  .file-preview {
+    display: none; margin-top: 12px; align-items: center;
+    gap: 10px; background: #f7fafc; padding: 10px 14px; border-radius: 8px;
+  }
+  .file-preview .fname { font-weight: 500; color: #2d3748; }
+  .file-preview .fsize { color: #718096; font-size: 0.85rem; }
+
+  /* Buttons */
+  .btn {
+    display: inline-flex; align-items: center; gap: 6px;
+    padding: 10px 22px; border: none; border-radius: 8px;
+    font-size: 0.95rem; font-weight: 600; cursor: pointer; transition: all 0.2s;
+  }
+  .btn-primary { background: #1a56db; color: white; }
+  .btn-primary:hover { background: #1344b0; }
+  .btn-primary:disabled { background: #90cdf4; cursor: not-allowed; }
+  .btn-success { background: #38a169; color: white; }
+  .btn-success:hover { background: #2f855a; }
+  .btn-outline { background: white; color: #1a56db; border: 1.5px solid #1a56db; }
+  .btn-outline:hover { background: #ebf8ff; }
+
+  .actions { display: flex; gap: 10px; margin-top: 16px; flex-wrap: wrap; }
+
+  /* Result */
+  .result-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 20px; }
+  @media (max-width: 700px) { .result-grid { grid-template-columns: 1fr; } }
+
+  .result-img-wrap img {
+    width: 100%; border-radius: 8px;
+    border: 1px solid #e2e8f0;
+  }
+
+  .stat-box {
+    display: flex; flex-direction: column; gap: 12px;
+  }
+  .stat-item {
+    display: flex; justify-content: space-between; align-items: center;
+    padding: 12px 16px; border-radius: 8px; background: #f7fafc;
+  }
+  .stat-item .label { font-size: 0.9rem; color: #4a5568; }
+  .stat-item .value { font-size: 1.4rem; font-weight: 700; }
+  .stat-item.cat .value { color: #dd6b20; }
+  .stat-item.dog .value { color: #3182ce; }
+  .stat-item.total .value { color: #276749; }
+
+  /* Loader */
+  .loader {
+    display: none; text-align: center; padding: 30px;
+  }
+  .spinner {
+    width: 44px; height: 44px; border: 4px solid #e2e8f0;
+    border-top-color: #1a56db; border-radius: 50%;
+    animation: spin 0.8s linear infinite; margin: 0 auto 12px;
+  }
+  @keyframes spin { to { transform: rotate(360deg); } }
+
+  /* History */
+  table { width: 100%; border-collapse: collapse; font-size: 0.88rem; }
+  th {
+    background: #2e75b6; color: white; padding: 10px 12px;
+    text-align: left; font-weight: 600;
+  }
+  td { padding: 9px 12px; border-bottom: 1px solid #e2e8f0; }
+  tr:hover td { background: #ebf8ff; }
+  .badge {
+    display: inline-block; padding: 2px 8px; border-radius: 20px;
+    font-size: 0.78rem; font-weight: 600;
+  }
+  .badge-img { background: #ebf8ff; color: #1a56db; }
+  .badge-vid { background: #fef3c7; color: #92400e; }
+
+  .empty { text-align: center; color: #a0aec0; padding: 24px; font-size: 0.9rem; }
+
+  .result-section { display: none; }
+</style>
+</head>
+<body>
+
+<header>
+  <span>🐾</span>
+  <div>
+    <h1>Мониторинг бездомных животных во дворах</h1>
+    <div style="font-size:0.82rem;opacity:0.85">YOLOv8 · Детекция кошек и собак</div>
+  </div>
+</header>
+
+<div class="container">
+
+  <!-- Upload Card -->
+  <div class="card">
+    <h2>📤 Загрузка файла</h2>
+    <div class="upload-zone" id="dropZone" onclick="document.getElementById('fileInput').click()">
+      <input type="file" id="fileInput" accept="image/*,video/*">
+      <div class="icon">🖼️</div>
+      <p>Нажмите или перетащите файл сюда</p>
+      <div class="hint">Изображения: JPG, PNG, BMP · Видео: MP4, AVI, MOV · До 50 МБ</div>
+    </div>
+    <div class="file-preview" id="filePreview">
+      <span>📄</span>
+      <span class="fname" id="previewName"></span>
+      <span class="fsize" id="previewSize"></span>
+    </div>
+    <div class="actions">
+      <button class="btn btn-primary" id="detectBtn" onclick="runDetection()" disabled>
+        🔍 Запустить детекцию
+      </button>
+    </div>
+  </div>
+
+  <!-- Loader -->
+  <div class="loader" id="loader">
+    <div class="spinner"></div>
+    <p>Обрабатываем файл, пожалуйста подождите…</p>
+  </div>
+
+  <!-- Result Card -->
+  <div class="card result-section" id="resultSection">
+    <h2>✅ Результат детекции</h2>
+    <div class="result-grid">
+      <div class="result-img-wrap">
+        <img id="resultImg" src="" alt="Результат">
+      </div>
+      <div class="stat-box">
+        <div class="stat-item cat">
+          <span class="label">🐱 Кошек обнаружено</span>
+          <span class="value" id="statCat">0</span>
+        </div>
+        <div class="stat-item dog">
+          <span class="label">🐶 Собак обнаружено</span>
+          <span class="value" id="statDog">0</span>
+        </div>
+        <div class="stat-item total">
+          <span class="label">🐾 Всего животных</span>
+          <span class="value" id="statTotal">0</span>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Reports Card -->
+  <div class="card">
+    <h2>📊 Отчёты и история</h2>
+    <div class="actions" style="margin-top:0; margin-bottom: 16px;">
+      <a href="/report/excel" class="btn btn-success">⬇ Скачать Excel</a>
+      <a href="/report/pdf" class="btn btn-outline">⬇ Скачать PDF</a>
+      <button class="btn btn-outline" onclick="loadHistory()">🔄 Обновить историю</button>
+    </div>
+    <div id="historyContainer">
+      <div class="empty">История пуста — загрузите изображение для начала работы</div>
+    </div>
+  </div>
+
+</div>
+
+<script>
+const fileInput = document.getElementById('fileInput');
+const dropZone = document.getElementById('dropZone');
+const detectBtn = document.getElementById('detectBtn');
+let selectedFile = null;
+
+fileInput.addEventListener('change', e => handleFile(e.target.files[0]));
+
+dropZone.addEventListener('dragover', e => { e.preventDefault(); dropZone.classList.add('dragover'); });
+dropZone.addEventListener('dragleave', () => dropZone.classList.remove('dragover'));
+dropZone.addEventListener('drop', e => {
+  e.preventDefault(); dropZone.classList.remove('dragover');
+  if (e.dataTransfer.files[0]) handleFile(e.dataTransfer.files[0]);
+});
+
+function handleFile(file) {
+  if (!file) return;
+  selectedFile = file;
+  document.getElementById('previewName').textContent = file.name;
+  document.getElementById('previewSize').textContent = formatSize(file.size);
+  document.getElementById('filePreview').style.display = 'flex';
+  detectBtn.disabled = false;
+}
+
+function formatSize(bytes) {
+  if (bytes < 1024) return bytes + ' B';
+  if (bytes < 1048576) return (bytes/1024).toFixed(1) + ' KB';
+  return (bytes/1048576).toFixed(1) + ' MB';
+}
+
+async function runDetection() {
+  if (!selectedFile) return;
+  detectBtn.disabled = true;
+  document.getElementById('loader').style.display = 'block';
+  document.getElementById('resultSection').style.display = 'none';
+
+  const formData = new FormData();
+  formData.append('file', selectedFile);
+
+  try {
+    const res = await fetch('/detect', { method: 'POST', body: formData });
+    const data = await res.json();
+    if (data.success) {
+      document.getElementById('resultImg').src = data.result_image + '?t=' + Date.now();
+      document.getElementById('statCat').textContent = data.stats['Cat'] || 0;
+      document.getElementById('statDog').textContent = data.stats['Dog'] || 0;
+      document.getElementById('statTotal').textContent = data.stats['total'] || 0;
+      document.getElementById('resultSection').style.display = 'block';
+      loadHistory();
+    } else {
+      alert('Ошибка: ' + (data.error || 'Неизвестная ошибка'));
+    }
+  } catch (err) {
+    alert('Ошибка при обращении к серверу: ' + err.message);
+  } finally {
+    document.getElementById('loader').style.display = 'none';
+    detectBtn.disabled = false;
+  }
+}
+
+async function loadHistory() {
+  const res = await fetch('/history');
+  const data = await res.json();
+  const container = document.getElementById('historyContainer');
+  if (!data.length) {
+    container.innerHTML = '<div class="empty">История пуста</div>';
+    return;
+  }
+  const rows = [...data].reverse().map((r, i) => `
+    <tr>
+      <td>${data.length - i}</td>
+      <td>${r.timestamp}</td>
+      <td title="${r.filename}">${r.filename.length > 28 ? r.filename.slice(0,28)+'…' : r.filename}</td>
+      <td><span class="badge ${r.type === 'video' ? 'badge-vid' : 'badge-img'}">${r.type === 'video' ? 'Видео' : 'Фото'}</span></td>
+      <td>${r.stats?.['Cat'] ?? 0}</td>
+      <td>${r.stats?.['Dog'] ?? 0}</td>
+      <td><b>${r.stats?.['total'] ?? 0}</b></td>
+    </tr>`).join('');
+  container.innerHTML = `
+    <table>
+      <thead><tr><th>№</th><th>Время</th><th>Файл</th><th>Тип</th><th>🐱</th><th>🐶</th><th>Всего</th></tr></thead>
+      <tbody>${rows}</tbody>
+    </table>`;
+}
+
+loadHistory();
+</script>
+</body>
+</html>
